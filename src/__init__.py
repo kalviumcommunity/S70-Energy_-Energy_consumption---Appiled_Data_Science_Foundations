@@ -1,0 +1,3 @@
+# This file marks the src/ directory as a Python package.
+# It allows notebooks to import modules from this folder using:
+#   from src.preprocessing import ...

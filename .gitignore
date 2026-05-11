@@ -1,0 +1,24 @@
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Virtual environments
+.env
+.venv
+venv/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Large model files (use Git LFS if needed)
+models/*.pkl
+models/*.joblib
+
+# XLS/Excel exports (not needed in version control)
+*.xls
+*.xlsx
