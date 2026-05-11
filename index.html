@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoDwell Energy Dashboard</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@sgratzl/chartjs-chart-boxplot@4.3.0/build/index.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body class="dark-theme">
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <p>Parsing dataset...</p>
+    </div>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fa-solid fa-leaf logo-icon"></i>
+                <h2>EcoDwell</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <ul>
+                    <li class="active" data-tab="overview"><i class="fa-solid fa-house"></i> Overview</li>
+                    <li data-tab="transparency"><i class="fa-solid fa-table"></i> Transparency</li>
+                    <li data-tab="insights"><i class="fa-solid fa-lightbulb"></i> Insights</li>
+                    <li data-tab="benchmarks"><i class="fa-solid fa-chart-column"></i> Benchmarks</li>
+                    <li data-tab="explorer"><i class="fa-solid fa-folder-tree"></i> Data Explorer</li>
+                </ul>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-profile">
+                    <img src="https://ui-avatars.com/api/?name=Admin+User&background=3b82f6&color=fff" alt="User">
+                    <div>
+                        <p class="name">Bldg Manager</p>
+                        <p class="role">Admin</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-nav">
+                <div class="search-bar">
+                    <i class="fa-solid fa-search"></i>
+                    <input type="text" placeholder="Search apartments, types...">
+                </div>
+                <div class="header-actions">
+                    <button class="icon-btn" id="btn-notifications"><i class="fa-solid fa-bell"></i><span
+                            class="badge"></span></button>
+                    <button class="icon-btn" id="btn-settings"><i class="fa-solid fa-gear"></i></button>
+                </div>
+            </header>
+
+            <!-- Overlays -->
+            <div id="notifications-popover" class="glass hidden">
+                <h4>Notifications</h4>
+                <div class="notif-item">
+                    <i class="fa-solid fa-bolt" style="color:var(--accent-red)"></i> Peak Usage detected in Hour 1!
+                </div>
+                <div class="notif-item">
+                    <i class="fa-solid fa-check" style="color:var(--accent-green)"></i> Week 2 data sync complete.
+                </div>
+            </div>
+
+            <div id="settings-modal" class="glass hidden">
+                <div class="settings-header">
+                    <h4>Settings</h4>
+                    <button id="close-settings" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="settings-body">
+                    <div class="setting-row">
+                        <span>Dark Theme</span>
+                        <input type="checkbox" id="theme-toggle" checked>
+                    </div>
+                    <div class="setting-row">
+                        <span>Push Alerts</span>
+                        <input type="checkbox" checked>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed Resident Report Modal -->
+            <div id="resident-report-modal" class="glass hidden modal-large">
+                <div class="settings-header">
+                    <h4 id="report-modal-title">Detailed Usage Report</h4>
+                    <button id="close-report" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="settings-body scrollable-y" style="max-height: 70vh;">
+                    <div class="report-header-flex">
+                        <h2 id="report-apt-id">AXX</h2>
+                        <span id="report-apt-type" class="status-badge status-normal">Type X</span>
+                    </div>
+
+                    <div class="report-stats grid-2-col">
+                        <div class="stat-box glass">
+                            <span class="label">Total Week Usage</span>
+                            <h3 class="value" id="report-total-usage">0 kWh</h3>
+                        </div>
+                        <div class="stat-box glass">
+                            <span class="label">Est. Weekly Bill</span>
+                            <h3 class="value" id="report-est-cost">$0.00</h3>
+                        </div>
+                    </div>
+
+                    <div class="chart-container" style="height: 250px; margin-top: 1rem;">
+                        <canvas id="dailyBreakdownChart"></canvas>
+                    </div>
+
+                    <div class="report-insights" style="margin-top: 1.5rem;">
+                        <h4>Insights</h4>
+                        <p id="report-insight-text">Loading...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-view" id="dashboard-view">
+
+                <!-- Overview View -->
+                <div id="view-overview" class="tab-content active">
+                    <div class="welcome-banner">
+                        <div>
+                            <h1>Overview</h1>
+                            <p>Week 2 Analysis Overview. Track transparency, insights & benchmarks.</p>
+                        </div>
+                    </div>
+
+                    <!-- KPIs -->
+                    <div class="kpi-grid">
+                        <div class="kpi-card glass">
+                            <div class="icon"><i class="fa-solid fa-building"></i></div>
+                            <div class="info">
+                                <p class="label">Total Apartments</p>
+                                <h3 class="value">50</h3>
+                                <p class="trend positive"><i class="fa-solid fa-check"></i> Monitored Active</p>
+                            </div>
+                        </div>
+                        <div class="kpi-card glass">
+                            <div class="icon warning"><i class="fa-solid fa-fire-flame-curved"></i></div>
+                            <div class="info">
+                                <p class="label">Weekly Energy</p>
+                                <h3 class="value" id="kpi-total-energy">---</h3>
+                                <p class="trend negative"><i class="fa-solid fa-arrow-trend-up"></i> +2.4% vs Wk 1</p>
+                            </div>
+                        </div>
+                        <div class="kpi-card glass">
+                            <div class="icon info"><i class="fa-solid fa-plug"></i></div>
+                            <div class="info">
+                                <p class="label">Top Efficiency</p>
+                                <h3 class="value">Type C</h3>
+                                <p class="trend positive"><i class="fa-solid fa-award"></i> Lowest Baseline Usage</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bottom-grid">
+                        <!-- Resident Usage -->
+                        <div class="data-card glass" style="grid-column: 1 / -1;">
+                            <div class="card-header">
+                                <h3>Resident Usage (A0 - A49)</h3>
+                                <div class="filter-group">
+                                    <select id="typeFilter">
+                                        <option value="All">All Types</option>
+                                        <option value="A">Type A</option>
+                                        <option value="B">Type B</option>
+                                        <option value="C">Type C</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="resident-grid scrollable-y" id="residentGrid">
+                                <!-- Items injected via JS -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Transparency View -->
+                <div id="view-transparency" class="tab-content">
+                    <div class="welcome-banner">
+                        <div>
+                            <h1>Transparency Dashboard</h1>
+                            <p>Detailed log of recent hourly energy allocations.</p>
+                        </div>
+                    </div>
+
+                    <div class="bottom-grid">
+                        <!-- Transparency Table -->
+                        <div class="data-card glass" style="grid-column: 1 / -1;">
+                            <div class="card-header">
+                                <h3>Recent Hourly Rows</h3>
+                                <button class="btn btn-primary btn-sm"><i class="fa-solid fa-download"></i> Export
+                                    CSV</button>
+                            </div>
+                            <div class="table-responsive">
+                                <table id="transparencyTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Date/Time</th>
+                                            <th>Apt ID</th>
+                                            <th>Apt Type</th>
+                                            <th>Usage (kWh)</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Injected via JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Insights View -->
+                <div id="view-insights" class="tab-content">
+                    <div class="welcome-banner" style="flex-direction: column; align-items: stretch; gap: 1.5rem;">
+                        <div>
+                            <h1>Insights & Alerts</h1>
+                            <p>Actionable observations based on current energy trends.</p>
+                        </div>
+                        <div class="alerts-container">
+                            <div class="alert-card alert-danger">
+                                <div class="icon-wrapper"><i class="fa-solid fa-bolt"></i></div>
+                                <div class="alert-text">
+                                    <h3>Peak Usage</h3>
+                                    <p><strong>Hour 1</strong> is the peak. Encourage shifting appliance use.</p>
+                                </div>
+                            </div>
+                            <div class="alert-card alert-success">
+                                <div class="icon-wrapper"><i class="fa-solid fa-leaf"></i></div>
+                                <div class="alert-text">
+                                    <h3>Type C Efficiency</h3>
+                                    <p>Type C units used 15% less energy than baseline this week.</p>
+                                </div>
+                            </div>
+                            <div class="alert-card alert-warning">
+                                <div class="icon-wrapper"><i class="fa-solid fa-temperature-arrow-up"></i></div>
+                                <div class="alert-text">
+                                    <h3>HVAC Anomaly</h3>
+                                    <p>Apt A15 & A42 show unusually high heating patterns overnight.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="charts-grid" style="grid-template-columns: 1fr;">
+                        <!-- Seasonal Trends -->
+                        <div class="chart-card glass">
+                            <div class="card-header">
+                                <h3>Seasonal Trends <span>(Monthly Avg)</span></h3>
+                                <button class="more-btn"><i class="fa-solid fa-ellipsis"></i></button>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="seasonalChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="charts-grid">
+                        <!-- High Consumption Anomalies -->
+                        <div class="chart-card glass">
+                            <div class="card-header">
+                                <h3>Anomalies <span>(Top 5 Consumers vs Avg)</span></h3>
+                                <button class="more-btn"><i class="fa-solid fa-ellipsis"></i></button>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="anomaliesChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Usage Breakdown -->
+                        <div class="chart-card glass">
+                            <div class="card-header">
+                                <h3>Total Usage Breakdown <span>(Estimated Categories)</span></h3>
+                                <button class="more-btn"><i class="fa-solid fa-ellipsis"></i></button>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="breakdownChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Benchmarks View -->
+                <div id="view-benchmarks" class="tab-content">
+                    <div class="welcome-banner">
+                        <div>
+                            <h1>Building Benchmarks</h1>
+                            <p>Compare performance against different apartment types.</p>
+                        </div>
+                    </div>
+
+                    <div class="charts-grid">
+                        <!-- Building Benchmarks -->
+                        <div class="chart-card glass">
+                            <div class="card-header">
+                                <h3>Benchmarks <span>(By Type)</span></h3>
+                                <button class="more-btn"><i class="fa-solid fa-ellipsis"></i></button>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="benchmarkChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Energy Consumption Distribution -->
+                        <div class="chart-card glass">
+                            <div class="card-header">
+                                <h3>Energy Consumption Distribution <span>by Apartment Type</span></h3>
+                                <button class="more-btn"><i class="fa-solid fa-ellipsis"></i></button>
+                            </div>
+                            <div class="chart-container" style="height: 400px;">
+                                <canvas id="distributionChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </div>
+
+                <!-- Data Explorer View -->
+                <div id="view-explorer" class="tab-content">
+                    <div class="welcome-banner" style="margin-bottom: 1rem;">
+                        <div>
+                            <h1>Data Explorer</h1>
+                            <p>View the raw data contents for each file separately.</p>
+                        </div>
+                        <div class="filter-group">
+                            <select id="explorerFileSelect">
+                                <option value="" disabled selected>Select a dataset to view...</option>
+                                <option value="category_usage.csv">category_usage.csv</option>
+                                <option value="apartment_usage.csv">apartment_usage.csv</option>
+                                <option value="apartment_energy_data.csv">apartment_energy_data.csv</option>
+                                <option value="apartment_usage_clean.csv">apartment_usage_clean.csv</option>
+                                <option value="cleaned_apartment_data.csv">cleaned_apartment_data.csv</option>
+                                <option value="cleaned_data.csv">cleaned_data.csv</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="glass" style="padding: 1.5rem; overflow-x: auto; max-height: 65vh; overflow-y: auto;">
+                        <table id="explorerTable">
+                            <thead>
+                                <tr id="explorerTableHead">
+                                    <!-- Dynamic headers -->
+                                    <th>Please select a file from the dropdown.</th>
+                                </tr>
+                            </thead>
+                            <tbody id="explorerTableBody">
+                                <!-- Dynamic rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+
+</html>
